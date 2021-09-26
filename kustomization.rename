@@ -1,0 +1,9 @@
+generatorOptions:
+  disableNameSuffixHash: true
+secretGenerator:
+- name: nonprod-logging-secret
+  namespace: kube-system
+  type: Opaque
+  literals:
+  - aws-access-key=
+  - aws-secret-key=

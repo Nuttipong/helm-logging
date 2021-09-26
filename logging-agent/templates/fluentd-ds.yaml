@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ include "logging-agent.fullname" . }}
+  labels:
+   app: {{ include "logging-agent.fullname" . }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "logging-agent.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "logging-agent.fullname" . }}
+    spec:
+      automountServiceAccountToken: true
+      serviceAccount: {{ .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      initContainers:
+      - image: {{ .Values.image.server }}busybox
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["/bin/sh", "-c"]
+        args:
+          - cp /fluentd/etc2/fluent.conf /fluentd/etc/fluent.conf;cp /fluentd/etc2/systemd.conf /fluentd/etc/systemd.conf;cp /fluentd/etc2/kubernetes.conf /fluentd/etc/kubernetes.conf;cp /fluentd/etc2/prometheus.conf /fluentd/etc/prometheus.conf;
+        name: copy-fluentd-config
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: true
+          privileged: true
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /fluentd/etc2
+          mountPropagation: None
+          name: config-source
+        - mountPath: /fluentd/etc
+          mountPropagation: None
+          name: config-path
+      - command:
+        - sh
+        - -c
+        - ""
+        image: {{ .Values.image.server }}busybox
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: update-log-driver
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: true
+          privileged: true
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      containers:
+      - name: {{ include "logging-agent.fullname" . }}
+        image: {{ .Values.image.server }}{{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          allowPrivilegeEscalation: true
+          privileged: true
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
+        env:
+        {{- with .Values.fluentEnvs }}
+        - name: FLUENT_UID
+          value: "0"
+        - name: ROLE_ARN
+          value: {{ .roleARN | quote }}
+        - name: ROLE_SESSION_NAME
+          value: {{ .roleSession | quote }}
+        - name: FLUENT_KINESIS_STREAMS_REGION
+          value: {{ .region | quote }}
+        - name: FLUENT_KINESIS_DELIVERY_STREAM_NAME
+          value: {{ .streamName | quote }}
+        - name: FLUENT_KINESIS_STREAMS_INCLUDE_TIME_KEY
+          value: {{ .includeTimeKey | quote }}
+        - name: FLUENT_BUFFER_CHUNK_LIMIT_SIZE
+          value: {{ .bufferChunkLimitSize | quote }}
+        - name: FLUENT_BUFFER_QUEUE_LIMIT_LENGTH
+          value: {{ .bufferQueueLimitLength | quote }}
+        - name: AWS_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: logging-agent-secret
+              key: aws-access-key
+        - name: AWS_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: logging-agent-secret
+              key: aws-secret-key
+        {{- end }}
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+          mountPropagation: None
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: config-path
+          mountPath: /fluentd/etc
+          readOnly: false
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: config-source
+        configMap:
+          name: {{ include "logging-agent.fullname" . }}-fluentd-cm
+      - name: config-path
+        emptyDir: {}

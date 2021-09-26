@@ -1,0 +1,3 @@
+Congratulation! You installed {{ .Chart.Name }} chart successfully.
+Release name is {{ .Release.Name }}
+Have fun!

@@ -1,0 +1,8 @@
+apiVersion: v2
+name: logging-agent
+description: A helm chart for fluentd logging agent verion 1.2.4
+keywords:
+  - logging-agent
+type: application
+appVersion: 1.2.4
+version: 1.2.4

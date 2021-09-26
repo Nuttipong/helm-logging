@@ -1,0 +1,54 @@
+image:
+  server: ""
+  repository: fluent/fluentd-kubernetes-daemonset
+  tag: v1.11.5-debian-kinesis-1.0 # v0.12-debian-kinesis
+  pullPolicy: IfNotPresent
+
+nameOverride:
+  fullnameOverride: ""
+
+namespace: kube-system
+
+serviceAccount: 
+  name: fluentd
+
+clusterRole:
+  name: fluentd-role
+  apiGroup: rbac.authorization.k8s.io
+
+clusterRoleBinding:
+  name: fluentd-role-binding
+
+terminationGracePeriodSeconds: 30
+
+configMap:
+  name: fluentd-config
+
+fluentEnvs:
+  assumeRole: true
+  roleARN: arn:aws:iam::657159750905:role/firehose-nonprod-autocicd-assumerole
+  roleSession: "nonprod-es-firehose"
+  region: "eu-central-1"
+  streamName: "firehose_cloudops_ec1_nonprod_es"
+  includeTimeKey: true
+  bufferChunkLimitSize: "10M"
+  bufferQueueLimitLength: "32"
+
+resources: 
+  limits:
+   cpu: 1000m
+   memory: 1000Mi
+  requests:
+   cpu: 250m
+   memory: 250Mi
+
+rbac:
+  create: true
+
+psp:
+  name: psp-restricted-fluentd
+  create: true
+
+sa:
+  create: true
+
